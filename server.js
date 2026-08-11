@@ -12,6 +12,7 @@ const GHL_API_KEY = process.env.GHL_API_KEY;           // GHL Private Integratio
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;   // Your sub-account/location ID
 const ETHAN_CALENDAR_LINK = process.env.ETHAN_CALENDAR_LINK; // e.g. https://link.yourcrm.com/widget/booking/ethan
 const FROM_EMAIL = process.env.FROM_EMAIL || 'pzabawa@westoeast.biz'; // must be a verified sender in GHL
+const FROM_NAME = 'Preston WestOEast GEO';
 
 // ---- 1. Webhook endpoint GHL calls when the audit form is submitted ----
 app.post('/webhook/audit-form', async (req, res) => {
@@ -76,7 +77,8 @@ async function sendEmailViaGHL(lead, emailBody) {
       contactId: lead.contactId,
       locationId: GHL_LOCATION_ID,
       emailFrom: FROM_EMAIL,
-      subject: `${lead.firstName}, your free audit is confirmed`,
+      fromName: FROM_NAME,
+      subject: `Quick Question About Your Free Audit (URGENT)`,
       html: emailBody.replace(/\n/g, '<br>')
     })
   });
