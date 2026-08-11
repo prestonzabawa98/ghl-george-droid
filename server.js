@@ -96,32 +96,44 @@ async function sendEmailViaGHL(lead, emailBody) {
   }
 }
 
-// ---- Fixed SMS template, written by hand. firstName is the only merge field. ----
+// ---- Fixed SMS templates, written by hand — sent as two separate texts. firstName is the only merge field. ----
 function buildSMS(lead) {
-  return `Hey ${lead.firstName}, Preston here with westOeast, I'm the client success manager and I noticed that you just requested a free audit from our team. I took a quick look at your company website and I think things could be real interesting. Looks like you didn't get a chance to book a meeting yet so I also wanted to use this as an opportunity to answer any/all questions you have regarding this. I also included the booking link here for your convenience! ${ETHAN_CALENDAR_LINK}`;
+  return [
+    `Hey ${lead.firstName}, Preston here with westOeast, I'm the client success manager and I noticed that you just requested a free audit from our team. I took a quick look at your company website and I think things could be real interesting.`,
+    `Looks like you didn't get a chance to book a meeting yet so I also wanted to use this as an opportunity to answer any/all questions you have regarding this. I also included the booking link here for your convenience! ${ETHAN_CALENDAR_LINK}`
+  ];
 }
 
-// ---- Send the SMS through GHL's API so it logs on the contact ----
+// ---- Send both SMS texts through GHL's API, a few seconds apart ----
 async function sendSMSViaGHL(lead) {
-  const response = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GHL_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Version': '2021-04-15'
-    },
-    body: JSON.stringify({
-      type: 'SMS',
-      contactId: lead.contactId,
-      locationId: GHL_LOCATION_ID,
-      fromNumber: FROM_PHONE,
-      message: buildSMS(lead)
-    })
-  });
+  const messages = buildSMS(lead);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`GHL SMS send failed: ${errText}`);
+  for (let i = 0; i < messages.length; i++) {
+    const response = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GHL_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Version': '2021-04-15'
+      },
+      body: JSON.stringify({
+        type: 'SMS',
+        contactId: lead.contactId,
+        locationId: GHL_LOCATION_ID,
+        fromNumber: FROM_PHONE,
+        message: messages[i]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`GHL SMS send failed: ${errText}`);
+    }
+
+    // Small gap before the second text so it reads as two natural messages
+    if (i < messages.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 40000));
+    }
   }
 }
 
