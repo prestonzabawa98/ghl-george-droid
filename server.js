@@ -13,6 +13,7 @@ const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;   // Your sub-account/locat
 const ETHAN_CALENDAR_LINK = process.env.ETHAN_CALENDAR_LINK; // e.g. https://link.yourcrm.com/widget/booking/ethan
 const FROM_EMAIL = process.env.FROM_EMAIL || 'pzabawa@westoeast.biz'; // must be a verified sender in GHL
 const FROM_NAME = 'Preston WestOEast GEO';
+const FROM_PHONE = process.env.FROM_PHONE || '+13156403611'; // must be a number set up in GHL
 
 // ---- 1. Webhook endpoint GHL calls when the audit form is submitted ----
 app.post('/webhook/audit-form', async (req, res) => {
@@ -23,6 +24,7 @@ app.post('/webhook/audit-form', async (req, res) => {
       contactId: req.body.contact_id || req.body.contactId,
       firstName: req.body.first_name || req.body.firstName || 'there',
       email: req.body.email,
+      phone: req.body.phone || req.body.phone_number || '',
       // Whatever qualifying questions your audit form asks — adjust field keys
       businessType: req.body.business_type || '',
       biggestChallenge: req.body.biggest_challenge || '',
@@ -37,7 +39,13 @@ app.post('/webhook/audit-form', async (req, res) => {
     const emailBody = buildEmail(lead);
 
     // ---- 3. Send it through GHL so it threads into their contact record ----
+    // (Delay is handled by a "Wait" step in the GHL workflow, before this webhook fires)
     await sendEmailViaGHL(lead, emailBody);
+
+    // ---- 4. Send an instant SMS too — speed matters more than email here ----
+    if (lead.phone) {
+      await sendSMSViaGHL(lead);
+    }
 
     // Respond fast — GHL doesn't need to wait on anything else
     res.status(200).json({ status: 'sent' });
@@ -53,7 +61,7 @@ function buildEmail(lead) {
 
 This is Preston, client success specialist from westOeast, just saw your request come through on my end so I wanted to write you a personal email to connect while our specialists work on your audit.
 
-I noticed that you didn't book in a time to chat with our GEO specialist Ethan. I want to make sure everything goes smoothly… are there any questions you'd like answered before you have a chat with him or were you just planning on booking it in once you get the report?
+I took a look at your website and I think we would have a great time working together. I noticed that you didn't book in a time to chat with our GEO specialist Ethan. I want to make sure everything goes smoothly… are there any questions you'd like answered before you have a chat with him or were you just planning on booking it in once you get the report?
 
 I'll drop the scheduling link right here for your convenience.
 
@@ -85,6 +93,35 @@ async function sendEmailViaGHL(lead, emailBody) {
   if (!response.ok) {
     const errText = await response.text();
     throw new Error(`GHL send failed: ${errText}`);
+  }
+}
+
+// ---- Fixed SMS template, written by hand. firstName is the only merge field. ----
+function buildSMS(lead) {
+  return `Hey ${lead.firstName}, Preston here with westOeast, I'm the client success manager and I noticed that you just requested a free audit from our team. I took a quick look at your company website and I think things could be real interesting. Looks like you didn't get a chance to book a meeting yet so I also wanted to use this as an opportunity to answer any/all questions you have regarding this. I also included the booking link here for your convenience! ${ETHAN_CALENDAR_LINK}`;
+}
+
+// ---- Send the SMS through GHL's API so it logs on the contact ----
+async function sendSMSViaGHL(lead) {
+  const response = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GHL_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Version': '2021-04-15'
+    },
+    body: JSON.stringify({
+      type: 'SMS',
+      contactId: lead.contactId,
+      locationId: GHL_LOCATION_ID,
+      fromNumber: FROM_PHONE,
+      message: buildSMS(lead)
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`GHL SMS send failed: ${errText}`);
   }
 }
 
