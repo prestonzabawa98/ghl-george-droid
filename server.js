@@ -11,6 +11,7 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const GHL_API_KEY = process.env.GHL_API_KEY;           // GHL Private Integration token
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;   // Your sub-account/location ID
 const ETHAN_CALENDAR_LINK = process.env.ETHAN_CALENDAR_LINK; // e.g. https://link.yourcrm.com/widget/booking/ethan
+const FROM_EMAIL = process.env.FROM_EMAIL || 'pzabawa@westoeast.biz'; // must be a verified sender in GHL
 
 // ---- 1. Webhook endpoint GHL calls when the audit form is submitted ----
 app.post('/webhook/audit-form', async (req, res) => {
@@ -31,8 +32,8 @@ app.post('/webhook/audit-form', async (req, res) => {
       return res.status(400).json({ error: 'Missing required lead fields' });
     }
 
-    // ---- 2. Generate the personalized email with Claude ----
-    const emailBody = await generatePersonalizedEmail(lead);
+    // ---- 2. Build the email from your fixed template ----
+    const emailBody = buildEmail(lead);
 
     // ---- 3. Send it through GHL so it threads into their contact record ----
     await sendEmailViaGHL(lead, emailBody);
@@ -45,42 +46,20 @@ app.post('/webhook/audit-form', async (req, res) => {
   }
 });
 
-// ---- Claude call: draft a short, specific, non-templated email ----
-async function generatePersonalizedEmail(lead) {
-  const prompt = `You're writing a short email on behalf of a sales setter to a lead who just requested a free audit.
+// ---- Fixed template, written by hand. firstName is the only merge field. ----
+function buildEmail(lead) {
+  return `Hey ${lead.firstName},
 
-Lead details:
-- Name: ${lead.firstName}
-- Business type: ${lead.businessType || 'not specified'}
-- Biggest challenge they mentioned: ${lead.biggestChallenge || 'not specified'}
-- Revenue range: ${lead.revenue || 'not specified'}
+This is Preston, client success specialist from westOeast, just saw your request come through on my end so I wanted to write you a personal email to connect while our specialists work on your audit.
 
-Write a warm, specific, non-salesy email (under 120 words) that:
-1. References their specific answer(s) above naturally, not as a list
-2. Confirms their free audit request
-3. Creates urgency to book a call with Ethan (our strategist) this week
-4. Ends with a clear single call-to-action to book — I will insert the booking link myself, so end with the placeholder [BOOKING_LINK] exactly where the link should go
+I noticed that you didn't book in a time to chat with our GEO specialist Ethan. I want to make sure everything goes smoothly… are there any questions you'd like answered before you have a chat with him or were you just planning on booking it in once you get the report?
 
-Do not use generic phrases like "I hope this email finds you well." Sound like a real person, not a template. Output ONLY the email body, no subject line, no preamble.`;
+I'll drop the scheduling link right here for your convenience.
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 400,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
+P.S. he only has a few spots open this week, so if you want to lock one in before they fill up, grab a time here: ${ETHAN_CALENDAR_LINK}
 
-  const data = await response.json();
-  let text = data.content?.[0]?.text || '';
-  text = text.replace('[BOOKING_LINK]', ETHAN_CALENDAR_LINK);
-  return text;
+Talk soon,
+Preston WestOEast`;
 }
 
 // ---- Send the email through GHL's API so it logs on the contact ----
@@ -96,6 +75,7 @@ async function sendEmailViaGHL(lead, emailBody) {
       type: 'Email',
       contactId: lead.contactId,
       locationId: GHL_LOCATION_ID,
+      emailFrom: FROM_EMAIL,
       subject: `${lead.firstName}, your free audit is confirmed`,
       html: emailBody.replace(/\n/g, '<br>')
     })
