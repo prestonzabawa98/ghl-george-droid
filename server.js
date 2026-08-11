@@ -76,8 +76,7 @@ async function sendEmailViaGHL(lead, emailBody) {
       type: 'Email',
       contactId: lead.contactId,
       locationId: GHL_LOCATION_ID,
-      emailFrom: FROM_EMAIL,
-      fromName: FROM_NAME,
+      emailFrom: `${FROM_NAME} <${FROM_EMAIL}>`,
       subject: `Quick Question About Your Free Audit (URGENT)`,
       html: emailBody.replace(/\n/g, '<br>')
     })
