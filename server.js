@@ -18,6 +18,8 @@ const FROM_PHONE = process.env.FROM_PHONE || '+13156403611'; // must be a number
 // ---- 1. Webhook endpoint GHL calls when the audit form is submitted ----
 app.post('/webhook/audit-form', async (req, res) => {
   try {
+    console.log('Incoming payload:', JSON.stringify(req.body));
+
     // GHL sends form data in req.body — field names depend on how you set up
     // the "Webhook" workflow action. Log a real payload once and adjust below.
     const lead = {
