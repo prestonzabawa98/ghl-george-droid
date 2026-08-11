@@ -1,0 +1,15 @@
+{
+  "name": "ghl-ai-lead-bot",
+  "version": "1.0.0",
+  "description": "Webhook server: GHL form submission -> Claude personalized email -> GHL send",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
